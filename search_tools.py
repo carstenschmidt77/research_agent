@@ -2,6 +2,57 @@ import arxiv
 from Bio import Entrez
 from typing import List, Dict, Any
 
+from typing import List, Dict, Any
+import requests
+import os
+
+def search_github(*, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    """Search for repositories on GitHub"""
+    try:
+        github_token = os.getenv('GITHUB_TOKEN')
+        if not github_token:
+            print("GitHub Error: GITHUB_TOKEN environment variable not set")
+            return []
+
+        headers = {"Authorization": f"token {github_token}"}
+        params = {
+            "q": query,
+            "per_page": max_results,
+            "sort": "best-match"
+        }
+
+        response = requests.get(
+            "https://api.github.com/search/repositories",
+            headers=headers,
+            params=params
+        )
+        response.raise_for_status()
+
+        results = response.json().get('items', [])
+        output = []
+
+        for repo in results:
+            owner = repo.get('owner', {})
+            created_at = repo.get('created_at', '')
+            authors = [owner.get('login', '')] if owner else []
+
+            output.append({
+                "title": repo.get('full_name', 'No title'),
+                "authors": authors[:3],
+                "year": int(created_at[:4]) if created_at else None,
+                "url": repo.get('html_url', '')
+            })
+
+        return output
+
+    except requests.exceptions.RequestException as e:
+        print(f"GitHub API Request Error: {str(e)}")
+        return []
+    except Exception as e:
+        print(f"GitHub Error: {str(e)}")
+        return []
+
+
 def search_arxiv(*, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
     """Search for papers in arXiv"""
     try:
